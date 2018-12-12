@@ -1,7 +1,6 @@
 let emotions = ['angry','neutral', 'happy'];
 let classifier = null;
 let mobilenet_model = null;
-let learner = null;
 let detected_e = null;
 let mode = 'test';
 let video = null;
@@ -10,20 +9,58 @@ async function init(){
   // load the load mobilenet and create a KnnClassifier
   this.classifier = knnClassifier.create();
   this.mobilenet_model = await mobilenet.load();
+
+  read_data_file()
+}
+
+function read_data_file() {
+  $.ajax({
+    type: "GET",
+    url: "./fer2013/data.csv",
+    dataType: "text",
+    success: function(data) {train(data);}
+ });
+}
+
+function train(csv) {
+  console.log('training model...')
+  let split = csv.split('\n');
+  let headers = split[0].split(',');
+  let lines = [];
+
+  console.log('training on ' + split.length + ' cases');
+  for (let i=1; i<5; i++) {
+      let data = split[i].split(',');
+      if (data.length == headers.length) {
+        // train model on each image
+        addExample(data[1], data[0]);
+      }
+  }
+
+  getEmotion();
 }
 
 
-function trainModel(){
-  let selected = document.getElementById("emotion_options");
-  this.learner = selected.options[selected.selectedIndex].value;
-  this.addExample();
-}
+function addExample(img, emotion){
+  // create off-screen canvas element
+  var canvas = document.createElement('canvas'),
+  ctx = canvas.getContext('2d');
 
+  canvas.width = 48;
+  canvas.height = 48;
 
-function addExample(){
-  const img= tf.fromPixels(this.$children[0].webcam.webcamElement);
-  const logits = this.mobilenet_model.infer(img, 'conv_preds');
-  this.classifier.addExample(logits, parseInt(this.learner));
+  // create imageData object
+  var idata = ctx.createImageData(48, 48);
+
+  // set our buffer as source
+  idata.data.set(img);
+
+  // update canvas with new data
+  ctx.putImageData(idata, 0, 0);
+
+  const logits = this.mobilenet_model.infer(canvas, 'conv_preds');
+  console.log(emotion)
+  this.classifier.addExample(logits, parseInt(emotion));
 }
 
 
@@ -37,17 +74,11 @@ async function getEmotion(){
   this.registerEmotion();
 }
 
-/*
-function changeOption(){
-    const selected = document.getElementById("use_case");
-    this.mode = selected.options[selected.selectedIndex].value;
-}
-*/
-
 
 function registerEmotion(){
     alert(this.detected_e)
 }
+
 
 function captureWebcam(){
   video = document.getElementById("videoElement");
@@ -63,5 +94,5 @@ function captureWebcam(){
   }
 }
 
-captureWebcam();
+//captureWebcam();
 init();
